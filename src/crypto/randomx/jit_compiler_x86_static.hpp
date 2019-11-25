@@ -48,4 +48,5 @@ extern "C" {
 	void randomx_sshash_end();
 	void randomx_sshash_init();
 	void randomx_program_end();
+	void randomx_force_flush_code_cache();
 }

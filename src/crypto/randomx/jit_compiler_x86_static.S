@@ -57,6 +57,7 @@
 .global DECL(randomx_sshash_init)
 .global DECL(randomx_program_end)
 .global DECL(randomx_reciprocal_fast)
+.global DECL(randomx_force_flush_code_cache)
 
 #define RANDOMX_SCRATCHPAD_MASK      2097088
 #define RANDOMX_DATASET_BASE_MASK    2147483584
@@ -227,6 +228,12 @@ DECL(randomx_reciprocal_fast):
 	mov rcx, rdi
 #endif
 	#include "asm/randomx_reciprocal.inc"
+
+.balign 64
+DECL(randomx_force_flush_code_cache):
+	;# 8191 8-byte NOPs
+	.fill 8191,8,8658703
+	ret
 
 #if defined(__linux__) && defined(__ELF__)
 .section .note.GNU-stack,"",%progbits

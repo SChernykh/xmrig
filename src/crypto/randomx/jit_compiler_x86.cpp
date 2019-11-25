@@ -218,6 +218,7 @@ namespace randomx {
 		memcpy(code + codePos, RandomX_CurrentConfig.codeReadDatasetTweaked, readDatasetSize);
 		codePos += readDatasetSize;
 		generateProgramEpilogue(prog, pcfg);
+		randomx_force_flush_code_cache();
 	}
 
 	void JitCompilerX86::generateProgramLight(Program& prog, ProgramConfiguration& pcfg, uint32_t datasetOffset) {

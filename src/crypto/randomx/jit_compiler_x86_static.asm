@@ -48,6 +48,7 @@ PUBLIC randomx_sshash_end
 PUBLIC randomx_sshash_init
 PUBLIC randomx_program_end
 PUBLIC randomx_reciprocal_fast
+PUBLIC randomx_force_flush_code_cache
 
 RANDOMX_SCRATCHPAD_MASK     EQU 2097088
 RANDOMX_DATASET_BASE_MASK   EQU 2147483584
@@ -215,6 +216,13 @@ randomx_program_end ENDP
 randomx_reciprocal_fast PROC
 	include asm/randomx_reciprocal.inc
 randomx_reciprocal_fast ENDP
+
+ALIGN 64
+randomx_force_flush_code_cache PROC
+	;# 8191 8-byte NOPs
+	db 8191 DUP(0Fh, 1Fh, 84h, 0, 0, 0, 0, 0)
+	ret
+randomx_force_flush_code_cache ENDP
 
 _RANDOMX_JITX86_STATIC ENDS
 
