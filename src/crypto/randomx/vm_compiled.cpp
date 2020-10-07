@@ -26,6 +26,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include "crypto/common/VirtualMemory.h"
 #include "crypto/randomx/vm_compiled.hpp"
 #include "crypto/randomx/common.hpp"
 #include "base/tools/Profiler.h"
@@ -50,6 +51,11 @@ namespace randomx {
 		compiler.generateProgram(program, config, randomx_vm::getFlags());
 		mem.memory = datasetPtr->memory + datasetOffset;
 		execute();
+	}
+
+	template<int softAes>
+	void* CompiledVm<softAes>::jit_ptr() {
+		return compiler.allocatedCode->scratchpad();
 	}
 
 	template<int softAes>

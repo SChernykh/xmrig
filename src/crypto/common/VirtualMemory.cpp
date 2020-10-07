@@ -49,7 +49,7 @@ static std::mutex mutex;
 } // namespace xmrig
 
 
-xmrig::VirtualMemory::VirtualMemory(size_t size, bool hugePages, bool oneGbPages, bool usePool, uint32_t node, size_t alignSize) :
+xmrig::VirtualMemory::VirtualMemory(size_t size, bool hugePages, bool oneGbPages, bool usePool, uint32_t node, size_t alignSize, bool executable) :
     m_size(align(size)),
     m_capacity(m_size),
     m_node(node)
@@ -74,8 +74,17 @@ xmrig::VirtualMemory::VirtualMemory(size_t size, bool hugePages, bool oneGbPages
         return;
     }
 
-    if (hugePages && allocateLargePagesMemory()) {
-        return;
+    if (hugePages) {
+        if (executable) {
+            m_scratchpad = static_cast<uint8_t*>(allocateExecutableMemory(m_size));
+            if (m_scratchpad) {
+                m_flags.set(FLAG_HUGEPAGES, true);
+                return;
+            }
+        }
+        else if (allocateLargePagesMemory()) {
+            return;
+        }
     }
 
     m_scratchpad = static_cast<uint8_t*>(_mm_malloc(m_size, alignSize));

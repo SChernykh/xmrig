@@ -46,7 +46,7 @@ class VirtualMemory
 public:
     XMRIG_DISABLE_COPY_MOVE_DEFAULT(VirtualMemory)
 
-    VirtualMemory(size_t size, bool hugePages, bool oneGbPages, bool usePool, uint32_t node = 0, size_t alignSize = 64);
+    VirtualMemory(size_t size, bool hugePages, bool oneGbPages, bool usePool, uint32_t node = 0, size_t alignSize = 64, bool executable = false);
     ~VirtualMemory();
 
     inline bool isHugePages() const     { return m_flags.test(FLAG_HUGEPAGES); }
@@ -61,7 +61,7 @@ public:
     static bool isHugepagesAvailable();
     static bool isOneGbPagesAvailable();
     static uint32_t bindToNUMANode(int64_t affinity);
-    static void *allocateExecutableMemory(size_t size, bool hugePages);
+    static void *allocateExecutableMemory(size_t size);
     static void *allocateLargePagesMemory(size_t size);
     static void *allocateOneGbPagesMemory(size_t size);
     static void destroy();

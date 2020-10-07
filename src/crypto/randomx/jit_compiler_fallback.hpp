@@ -41,7 +41,7 @@ namespace randomx {
 
 	class JitCompilerFallback {
 	public:
-		explicit JitCompilerFallback(bool) {
+		explicit JitCompilerFallback(bool hugePages) {
 			throw std::runtime_error("JIT compilation is not supported on this platform");
 		}
 		void prepare() {}

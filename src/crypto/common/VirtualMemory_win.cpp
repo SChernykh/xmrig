@@ -162,19 +162,16 @@ bool xmrig::VirtualMemory::isOneGbPagesAvailable()
 }
 
 
-void *xmrig::VirtualMemory::allocateExecutableMemory(size_t size, bool hugePages)
+void *xmrig::VirtualMemory::allocateExecutableMemory(size_t size)
 {
-    void* result = nullptr;
-
-    if (hugePages) {
-        result = VirtualAlloc(nullptr, align(size), MEM_COMMIT | MEM_RESERVE | MEM_LARGE_PAGES, PAGE_EXECUTE_READWRITE);
+    void* p = VirtualAlloc(nullptr, align(size), MEM_COMMIT | MEM_RESERVE | MEM_LARGE_PAGES, PAGE_EXECUTE_READWRITE);
+    if (!p)
+    {
+        DWORD err = GetLastError();
+        LOG_ERR("VirtualAlloc returned error %u", err);
+        p = VirtualAlloc(nullptr, size, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
     }
-
-    if (!result) {
-        result = VirtualAlloc(nullptr, size, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
-    }
-
-    return result;
+    return p;
 }
 
 
@@ -219,7 +216,10 @@ void xmrig::VirtualMemory::protectExecutableMemory(void *p, size_t size)
 void xmrig::VirtualMemory::unprotectExecutableMemory(void *p, size_t size)
 {
     DWORD oldProtect;
-    VirtualProtect(p, size, PAGE_EXECUTE_READWRITE, &oldProtect);
+    if (!VirtualProtect(p, size, PAGE_EXECUTE_READWRITE, &oldProtect)) {
+        DWORD err = GetLastError();
+        printf("VirtualProtect return error %d\n", err);
+    }
 }
 
 

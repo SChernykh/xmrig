@@ -30,6 +30,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <cstring>
 #include <climits>
 #include <atomic>
+#include "crypto/common/VirtualMemory.h"
 #include "crypto/randomx/jit_compiler_x86.hpp"
 #include "crypto/randomx/jit_compiler_x86_static.hpp"
 #include "crypto/randomx/superscalar.hpp"
@@ -48,13 +49,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #else
 #   include <cpuid.h>
 #endif
-
-static bool hugePagesJIT = false;
-
-void randomx_set_huge_pages_jit(bool hugePages)
-{
-	hugePagesJIT = hugePages;
-}
 
 namespace randomx {
 	/*
@@ -182,9 +176,8 @@ namespace randomx {
 #	endif
 
 	static std::atomic<size_t> codeOffset;
-	constexpr size_t codeOffsetIncrement = 59 * 64;
 
-	JitCompilerX86::JitCompilerX86(bool hugePagesEnable) {
+	JitCompilerX86::JitCompilerX86(bool hugePages) {
 		BranchesWithin32B = xmrig::Cpu::info()->jccErratum();
 
 		int32_t info[4];
@@ -194,10 +187,13 @@ namespace randomx {
 		cpuid(0x80000001, info);
 		hasXOP = ((info[2] & (1 << 11)) != 0);
 
-		allocatedCode = (uint8_t*)allocExecutableMemory(CodeSize * 2, hugePagesJIT && hugePagesEnable);
+		allocatedCode = new xmrig::VirtualMemory(CodeSize * 2, hugePages, false, hugePages);
+		if (!hugePages) {
+			xmrig::VirtualMemory::unprotectExecutableMemory(allocatedCode->scratchpad(), allocatedCode->size());
+		}
 
 		// Shift code base address to improve caching - all threads will use different L2/L3 cache sets
-		code = allocatedCode + (codeOffset.fetch_add(codeOffsetIncrement) % CodeSize);
+		code = allocatedCode->scratchpad() + (codeOffset.fetch_add(59 * 64) % CodeSize);
 
 		memcpy(code, codePrologue, prologueSize);
 		if (hasXOP) {
@@ -217,8 +213,8 @@ namespace randomx {
 	}
 
 	JitCompilerX86::~JitCompilerX86() {
-		codeOffset.fetch_sub(codeOffsetIncrement);
-		freePagedMemory(allocatedCode, CodeSize);
+		delete allocatedCode;
+		codeOffset.fetch_sub(59 * 64);
 	}
 
 	void JitCompilerX86::prepare() {

@@ -215,13 +215,15 @@ void xmrig::CpuWorker<N>::start()
 
 #       ifdef XMRIG_ALGO_RANDOMX
         bool first = true;
-        alignas(16) uint64_t tempHash[8] = {};
+        uint64_t tempHash[8] = {};
 
         // RandomX is faster, we don't need to store stats so often
         if (m_job.currentJob().algorithm().family() == Algorithm::RANDOM_X) {
             storeStatsMask = 63;
         }
 #       endif
+
+        static char fake_job[256] = {};
 
         while (!Nonce::isOutdated(Nonce::CPU, m_job.sequence())) {
             if ((m_count & storeStatsMask) == 0) {
@@ -276,7 +278,7 @@ void xmrig::CpuWorker<N>::start()
             if (valid) {
                 for (size_t i = 0; i < N; ++i) {
                     if (*reinterpret_cast<uint64_t*>(m_hash + (i * 32) + 24) < job.target()) {
-                        JobResults::submit(job, current_job_nonces[i], m_hash + (i * 32));
+                        //JobResults::submit(job, current_job_nonces[i], m_hash + (i * 32));
                     }
                 }
                 m_count += N;

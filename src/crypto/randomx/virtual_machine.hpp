@@ -44,6 +44,7 @@ public:
 	virtual void setCache(randomx_cache* cache) { }
 	virtual void initScratchpad(void* seed) = 0;
 	virtual void run(void* seed) = 0;
+	virtual void* jit_ptr() { return nullptr; }
 	void resetRoundingMode();
 
 	void setFlags(uint32_t flags) { vm_flags = flags; }

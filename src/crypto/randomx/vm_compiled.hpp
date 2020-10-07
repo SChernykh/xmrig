@@ -46,6 +46,7 @@ namespace randomx {
 
 		void setDataset(randomx_dataset* dataset) override;
 		void run(void* seed) override;
+		void* jit_ptr() override;
 
 		using VmBase<softAes>::mem;
 		using VmBase<softAes>::program;

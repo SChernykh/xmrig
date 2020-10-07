@@ -26,6 +26,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include "base/io/log/Log.h"
 #include "crypto/randomx/common.hpp"
 #include "crypto/randomx/randomx.h"
 #include "crypto/randomx/dataset.hpp"
@@ -46,6 +47,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <mutex>
 
 #include <cassert>
+#include <Windows.h>
 
 #include "base/tools/Profiler.h"
 
@@ -537,10 +539,15 @@ extern "C" {
 
 		if (vm) {
 			vm_pool_offset[node] += vm_size;
-			if (vm_pool_offset[node] + 4096 > VM_POOL_SIZE) {
+			//if (vm_pool_offset[node] + 4096 > VM_POOL_SIZE) {
+			//	vm_pool_offset[node] = 0;
+			//}
+			if (vm_pool_offset[node] >= vm_size * 16) {
 				vm_pool_offset[node] = 0;
 			}
 		}
+
+		LOG_INFO("Thread %u created VM: dataset %p, scratchpad %p, vm %p, jit %p", GetCurrentThreadId(), dataset->memory, scratchpad, vm, vm->jit_ptr());
 
 		return vm;
 	}

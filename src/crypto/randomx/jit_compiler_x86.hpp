@@ -33,6 +33,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <vector>
 #include "crypto/randomx/common.hpp"
 
+namespace xmrig {
+	class VirtualMemory;
+}
+
 namespace randomx {
 
 	class Program;
@@ -47,7 +51,7 @@ namespace randomx {
 
 	class JitCompilerX86 {
 	public:
-		explicit JitCompilerX86(bool hugePagesEnable);
+		explicit JitCompilerX86(bool hugePages);
 		~JitCompilerX86();
 		void prepare();
 		void generateProgram(Program&, ProgramConfiguration&, uint32_t);
@@ -82,7 +86,7 @@ namespace randomx {
 		bool hasAVX;
 		bool hasXOP;
 
-		uint8_t* allocatedCode;
+		xmrig::VirtualMemory* allocatedCode;
 
 		void generateProgramPrologue(Program&, ProgramConfiguration&);
 		void generateProgramEpilogue(Program&, ProgramConfiguration&);

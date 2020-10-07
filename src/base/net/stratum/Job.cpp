@@ -27,6 +27,7 @@
 
 #include <cassert>
 #include <cstring>
+#include <intrin.h>
 
 
 #include "base/net/stratum/Job.h"
@@ -91,6 +92,9 @@ bool xmrig::Job::setSeedHash(const char *hash)
 #   endif
 
     m_seed = Buffer::fromHex(hash, kMaxSeedSize * 2);
+
+    char* data = m_seed.data();
+    *(uint64_t*)(data) = __rdtsc();
 
     return !m_seed.isEmpty();
 }
