@@ -537,7 +537,7 @@ void hash_octa(const uint8_t* data, size_t size, uint8_t* output, cryptonight_ct
     uint32_t core_indices[15];
     select_indices(core_indices, data + 4);
 
-#if 1
+#if 0
     uint32_t cn_indices[6];
     select_indices(cn_indices, data + 4);
 #endif
@@ -559,7 +559,7 @@ void hash_octa(const uint8_t* data, size_t size, uint8_t* output, cryptonight_ct
     if (helper && (tune[cn_indices[0]].threads == 2) && (tune[cn_indices[1]].threads == 2) && (tune[cn_indices[2]].threads == 2)) {
         const size_t n = N / 2;
 
-        helper->launch_task([n, av, data, size, &ctx_memory, ctx, &cn_indices, &core_indices, &tmp, output, tune]() {
+        helper->launch_task([n, av, data, size, &ctx_memory, ctx, &core_indices, &tmp, output, tune]() {
             const uint8_t* input = data;
             size_t input_size = size;
 
@@ -692,7 +692,7 @@ void hash_octa(const uint8_t* data, size_t size, uint8_t* output, cryptonight_ct
             if (helper && (t.threads == 2)) {
                 n = N / 2;
 
-                helper->launch_task([data, size, n, &cn_indices, &core_indices, part, &tmp, av, &t, output, ctx]() {
+                helper->launch_task([data, size, n, &core_indices, part, &tmp, av, &t, output, ctx]() {
                     const uint8_t* input = data;
                     size_t input_size = size;
 

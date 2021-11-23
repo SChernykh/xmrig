@@ -347,7 +347,7 @@ void xmrig::CpuWorker<N>::start()
             }
 
             if (valid) {
-#if 1
+#if 0
                 for (size_t i = 0; i < N; ++i) {
                     const uint64_t value = *reinterpret_cast<uint64_t*>(m_hash + (i * 32) + 24);
 
