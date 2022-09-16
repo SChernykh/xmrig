@@ -81,7 +81,6 @@ namespace randomx {
 		uint32_t reg_changed_offset[8]{};
 		uint8_t* code = nullptr;
 		uint32_t literalPos;
-		uint32_t num32bitLiterals = 0;
 		size_t allocatedSize = 0;
 
 		void allocate(size_t size);

@@ -136,7 +136,6 @@ void JitCompilerA64::generateProgram(Program& program, ProgramConfiguration& con
 
 	codePos = PrologueSize;
 	literalPos = ImulRcpLiteralsEnd;
-	num32bitLiterals = 0;
 
 	for (uint32_t i = 0; i < RegistersCount; ++i)
 		reg_changed_offset[i] = codePos;
@@ -196,7 +195,6 @@ void JitCompilerA64::generateProgramLight(Program& program, ProgramConfiguration
 
 	codePos = PrologueSize;
 	literalPos = ImulRcpLiteralsEnd;
-	num32bitLiterals = 0;
 
 	for (uint32_t i = 0; i < RegistersCount; ++i)
 		reg_changed_offset[i] = codePos;
@@ -260,7 +258,6 @@ void JitCompilerA64::generateSuperscalarHash(SuperscalarProgram(&programs)[N])
 	memcpy(code + codePos, p1, p2 - p1);
 	codePos += p2 - p1;
 
-	num32bitLiterals = 64;
 	constexpr uint32_t tmp_reg = 12;
 
 	for (size_t i = 0; i < RandomX_ConfigurationBase::CacheAccesses; ++i)
@@ -412,45 +409,13 @@ void JitCompilerA64::emitMovImmediate(uint32_t dst, uint32_t imm, uint8_t* code,
 {
 	uint32_t k = codePos;
 
-	if (imm < (1 << 16))
-	{
-		// movz tmp_reg, imm32 (16 low bits)
-		emit32(ARMV8A::MOVZ | dst | (imm << 5), code, k);
-	}
-	else
-	{
-		if (num32bitLiterals < 64)
-		{
-			if (static_cast<int32_t>(imm) < 0)
-			{
-				// smov dst, vN.s[M]
-				emit32(0x4E042C00 | dst | ((num32bitLiterals / 4) << 5) | ((num32bitLiterals % 4) << 19), code, k);
-			}
-			else
-			{
-				// umov dst, vN.s[M]
-				emit32(0x0E043C00 | dst | ((num32bitLiterals / 4) << 5) | ((num32bitLiterals % 4) << 19), code, k);
-			}
+	// movz dst, imm32 (16 low bits)
+	emit32(ARMV8A::MOVZ | dst | ((imm & 0xFFFF) << 5), code, k);
 
-			((uint32_t*)(code + ImulRcpLiteralsEnd))[num32bitLiterals] = imm;
-			++num32bitLiterals;
-		}
-		else
-		{
-			if (static_cast<int32_t>(imm) < 0)
-			{
-				// movn tmp_reg, ~imm32 (16 high bits)
-				emit32(ARMV8A::MOVN | dst | (1 << 21) | ((~imm >> 16) << 5), code, k);
-			}
-			else
-			{
-				// movz tmp_reg, imm32 (16 high bits)
-				emit32(ARMV8A::MOVZ | dst | (1 << 21) | ((imm >> 16) << 5), code, k);
-			}
-
-			// movk tmp_reg, imm32 (16 low bits)
-			emit32(ARMV8A::MOVK | dst | ((imm & 0xFFFF) << 5), code, k);
-		}
+	if (imm >= (1 << 16))
+	{
+		// movk dst, imm32 (16 high bits), lsl 16
+		emit32(ARMV8A::MOVK | (1 << 21) | dst | ((imm >> 16) << 5), code, k);
 	}
 
 	codePos = k;

@@ -86,7 +86,7 @@
 # x29 -> literal for IMUL_RCP
 # x30 -> literal for IMUL_RCP
 
-# v0-v15 -> store 32-bit literals
+# v0-v15 -> unused
 # v16 -> "f0"
 # v17 -> "f1"
 # v18 -> "f2"
@@ -175,23 +175,6 @@ DECL(randomx_program_aarch64):
 	ldr	x28, literal_x28
 	ldr	x29, literal_x29
 	ldr	x30, literal_x30
-
-	ldr	q0, literal_v0
-	ldr	q1, literal_v1
-	ldr	q2, literal_v2
-	ldr	q3, literal_v3
-	ldr	q4, literal_v4
-	ldr	q5, literal_v5
-	ldr	q6, literal_v6
-	ldr	q7, literal_v7
-	ldr	q8, literal_v8
-	ldr	q9, literal_v9
-	ldr	q10, literal_v10
-	ldr	q11, literal_v11
-	ldr	q12, literal_v12
-	ldr	q13, literal_v13
-	ldr	q14, literal_v14
-	ldr	q15, literal_v15
 
 DECL(randomx_program_aarch64_main_loop):
 	# spAddr0 = spMix1 & ScratchpadL3Mask64;
@@ -285,23 +268,6 @@ literal_x28: .fill 1,8,0
 literal_x29: .fill 1,8,0
 literal_x30: .fill 1,8,0
 DECL(randomx_program_aarch64_imul_rcp_literals_end):
-
-literal_v0:  .fill 2,8,0
-literal_v1:  .fill 2,8,0
-literal_v2:  .fill 2,8,0
-literal_v3:  .fill 2,8,0
-literal_v4:  .fill 2,8,0
-literal_v5:  .fill 2,8,0
-literal_v6:  .fill 2,8,0
-literal_v7:  .fill 2,8,0
-literal_v8:  .fill 2,8,0
-literal_v9:  .fill 2,8,0
-literal_v10: .fill 2,8,0
-literal_v11: .fill 2,8,0
-literal_v12: .fill 2,8,0
-literal_v13: .fill 2,8,0
-literal_v14: .fill 2,8,0
-literal_v15: .fill 2,8,0
 
 DECL(randomx_program_aarch64_vm_instructions_end):
 	# Calculate dataset pointer for dataset read
