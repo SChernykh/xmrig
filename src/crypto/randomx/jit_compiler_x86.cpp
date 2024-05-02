@@ -111,8 +111,11 @@ namespace randomx {
 #	endif
 
 	#define codePrologue ADDR(randomx_program_prologue)
+	#define codePrologueLoadConstants ADDR(randomx_program_prologue_load_constants)
+	#define codePrologueLoadConstantsAVX512F ADDR(randomx_program_prologue_load_constants_avx512f)
 	#define codeLoopBegin ADDR(randomx_program_loop_begin)
 	#define codeLoopLoad ADDR(randomx_program_loop_load)
+	#define codeLoopLoadAVX512F ADDR(randomx_program_loop_load_avx512f)
 	#define codeLoopLoadXOP ADDR(randomx_program_loop_load_xop)
 	#define codeProgramStart ADDR(randomx_program_start)
 	#define codeReadDataset ADDR(randomx_program_read_dataset)
@@ -125,8 +128,10 @@ namespace randomx {
 	#define codeDatasetInitAVX2SshLoad ADDR(randomx_dataset_init_avx2_ssh_load)
 	#define codeDatasetInitAVX2SshPrefetch ADDR(randomx_dataset_init_avx2_ssh_prefetch)
 	#define codeLoopStore ADDR(randomx_program_loop_store)
+	#define codeLoopStoreAVX512F ADDR(randomx_program_loop_store_avx512f)
 	#define codeLoopEnd ADDR(randomx_program_loop_end)
 	#define codeEpilogue ADDR(randomx_program_epilogue)
+	#define codeEpilogueAVX512F ADDR(randomx_program_epilogue_avx512f)
 	#define codeProgramEnd ADDR(randomx_program_end)
 	#define codeSshLoad ADDR(randomx_sshash_load)
 	#define codeSshPrefetch ADDR(randomx_sshash_prefetch)
@@ -134,24 +139,29 @@ namespace randomx {
 	#define codeSshInit ADDR(randomx_sshash_init)
 
 	#define prologueSize (codeLoopBegin - codePrologue)
-	#define loopLoadSize (codeLoopLoadXOP - codeLoopLoad)
+	#define prologueLoadConstantsSize (codePrologueLoadConstantsAVX512F - codePrologueLoadConstants)
+	#define loopLoadSize (codeLoopLoadAVX512F - codeLoopLoad)
+	#define loopLoadAVX512FSize (codeLoopLoadXOP - codeLoopLoadAVX512F)
 	#define loopLoadXOPSize (codeProgramStart - codeLoopLoadXOP)
 	#define readDatasetSize (codeReadDatasetLightSshInit - codeReadDataset)
 	#define readDatasetLightInitSize (codeReadDatasetLightSshFin - codeReadDatasetLightSshInit)
 	#define readDatasetLightFinSize (codeLoopStore - codeReadDatasetLightSshFin)
-	#define loopStoreSize (codeLoopEnd - codeLoopStore)
+	#define loopStoreSize (codeLoopStoreAVX512F - codeLoopStore)
+	#define loopStoreAVX512FSize (codeLoopEnd - codeLoopStoreAVX512F)
 	#define datasetInitSize (codeDatasetInitAVX2Prologue - codeDatasetInit)
 	#define datasetInitAVX2PrologueSize (codeDatasetInitAVX2LoopEnd - codeDatasetInitAVX2Prologue)
 	#define datasetInitAVX2LoopEndSize (codeDatasetInitAVX2Epilogue - codeDatasetInitAVX2LoopEnd)
 	#define datasetInitAVX2EpilogueSize (codeDatasetInitAVX2SshLoad - codeDatasetInitAVX2Epilogue)
 	#define datasetInitAVX2SshLoadSize (codeDatasetInitAVX2SshPrefetch - codeDatasetInitAVX2SshLoad)
 	#define datasetInitAVX2SshPrefetchSize (codeEpilogue - codeDatasetInitAVX2SshPrefetch)
-	#define epilogueSize (codeSshLoad - codeEpilogue)
+	#define epilogueSize (codeEpilogueAVX512F - codeEpilogue)
+	#define epilogueAVX512FSize (codeSshLoad - codeEpilogueAVX512F)
 	#define codeSshLoadSize (codeSshPrefetch - codeSshLoad)
 	#define codeSshPrefetchSize (codeSshEnd - codeSshPrefetch)
 	#define codeSshInitSize (codeProgramEnd - codeSshInit)
 
 	#define epilogueOffset ((CodeSize - epilogueSize) & ~63)
+	#define epilogueAVX512FOffset ((CodeSize - epilogueAVX512FSize) & ~63)
 
 	constexpr int32_t superScalarHashOffset = 32768;
 
@@ -225,6 +235,7 @@ namespace randomx {
 
 		hasAVX = xmrig::Cpu::info()->hasAVX();
 		hasAVX2 = xmrig::Cpu::info()->hasAVX2();
+		hasAVX512F = xmrig::Cpu::info()->hasAVX512F();
 
 		// Disable by default
 		initDatasetAVX2 = false;
@@ -291,19 +302,34 @@ namespace randomx {
 		code = allocatedCode + (codeOffset.fetch_add(codeOffsetIncrement) % CodeSize);
 
 		memcpy(code, codePrologue, prologueSize);
-		if (hasXOP) {
+		if (hasAVX512F) {
+			memcpy(code + prologueSize, codeLoopLoadAVX512F, loopLoadAVX512FSize);
+			codePosFirst = prologueSize + loopLoadAVX512FSize;
+			memcpy(code + epilogueAVX512FOffset, codeEpilogueAVX512F, epilogueAVX512FSize);
+		}
+		else if (hasXOP) {
 			memcpy(code + prologueSize, codeLoopLoadXOP, loopLoadXOPSize);
+			codePosFirst = prologueSize + loopLoadXOPSize;
+			memcpy(code + epilogueOffset, codeEpilogue, epilogueSize);
 		}
 		else {
 			memcpy(code + prologueSize, codeLoopLoad, loopLoadSize);
+			codePosFirst = prologueSize + loopLoadSize;
+			memcpy(code + epilogueOffset, codeEpilogue, epilogueSize);
 		}
-		memcpy(code + epilogueOffset, codeEpilogue, epilogueSize);
 
-		codePosFirst = prologueSize + (hasXOP ? loopLoadXOPSize : loopLoadSize);
+		if (hasAVX512F) {
+			const uint32_t pos1 = (codePrologueLoadConstants - codePrologue);
+			const uint32_t jmp_offset = (codePrologueLoadConstantsAVX512F - codePrologueLoadConstants) - 2;
+
+			// Jump instruction from randomx_program_prologue_load_constants to randomx_program_prologue_load_constants_avx512f
+			uint32_t* p = reinterpret_cast<uint32_t*>(code + pos1);
+			*p = (*p & 0xFFFF0000UL) | (0xEB + (static_cast<uint32_t>(jmp_offset) << 8));
+		}
 
 #		ifdef XMRIG_FIX_RYZEN
 		mainLoopBounds.first = code + prologueSize;
-		mainLoopBounds.second = code + epilogueOffset;
+		mainLoopBounds.second = code + (hasAVX512F ? epilogueAVX512FOffset : epilogueOffset);
 #		endif
 	}
 
@@ -423,7 +449,8 @@ namespace randomx {
 		*(uint32_t*)(code + codePos + 4) = RandomX_CurrentConfig.ScratchpadL3Mask64_Calculated;
 		*(uint32_t*)(code + codePos + 14) = RandomX_CurrentConfig.ScratchpadL3Mask64_Calculated;
 		if (hasAVX) {
-			uint32_t* p = (uint32_t*)(code + codePos + 61);
+			const uint32_t pos1 = (codePrologueLoadConstants - codePrologue) - 3;
+			uint32_t* p = (uint32_t*)(code + pos1);
 			*p = (*p & 0xFF000000U) | 0x0077F8C5U; // vzeroupper
 		}
 
@@ -472,8 +499,15 @@ namespace randomx {
 		*(uint64_t*)(code + codePos) = 0xc03349c08b49ull + (static_cast<uint64_t>(pcfg.readReg0) << 16) + (static_cast<uint64_t>(pcfg.readReg1) << 40);
 		codePos += 6;
 		emit(RandomX_CurrentConfig.codePrefetchScratchpadTweaked, RandomX_CurrentConfig.codePrefetchScratchpadTweakedSize, code, codePos);
-		memcpy(code + codePos, codeLoopStore, loopStoreSize);
-		codePos += loopStoreSize;
+
+		if (hasAVX512F) {
+			memcpy(code + codePos, codeLoopStoreAVX512F, loopStoreAVX512FSize);
+			codePos += loopStoreAVX512FSize;
+		}
+		else {
+			memcpy(code + codePos, codeLoopStore, loopStoreSize);
+			codePos += loopStoreSize;
+		}
 
 		if (BranchesWithin32B) {
 			const uint32_t branch_begin = static_cast<uint32_t>(codePos);
@@ -494,7 +528,13 @@ namespace randomx {
 		codePos += 5;
 		emit32(prologueSize - codePos - 4, code, codePos);
 		emitByte(0xe9, code, codePos);
-		emit32(epilogueOffset - codePos - 4, code, codePos);
+
+		if (hasAVX512F) {
+			emit32(epilogueAVX512FOffset - codePos - 4, code, codePos);
+		}
+		else {
+			emit32(epilogueOffset - codePos - 4, code, codePos);
+		}
 	}
 
 	template<bool AVX2>
@@ -1440,7 +1480,6 @@ namespace randomx {
 	}
 
 	void JitCompilerX86::h_NOP(const Instruction& instr) {
-		emitByte(0x90, code, codePos);
 	}
 
 	alignas(64) InstructionGeneratorX86 JitCompilerX86::engine[256] = {};

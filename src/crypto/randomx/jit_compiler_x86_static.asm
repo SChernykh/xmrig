@@ -32,10 +32,13 @@ PUBLIC randomx_prefetch_scratchpad
 PUBLIC randomx_prefetch_scratchpad_bmi2
 PUBLIC randomx_prefetch_scratchpad_end
 PUBLIC randomx_program_prologue
+PUBLIC randomx_program_prologue_load_constants
+PUBLIC randomx_program_prologue_load_constants_avx512f
 PUBLIC randomx_program_prologue_first_load
 PUBLIC randomx_program_imul_rcp_store
 PUBLIC randomx_program_loop_begin
 PUBLIC randomx_program_loop_load
+PUBLIC randomx_program_loop_load_avx512f
 PUBLIC randomx_program_loop_load_xop
 PUBLIC randomx_program_start
 PUBLIC randomx_program_read_dataset
@@ -48,8 +51,10 @@ PUBLIC randomx_dataset_init_avx2_epilogue
 PUBLIC randomx_dataset_init_avx2_ssh_load
 PUBLIC randomx_dataset_init_avx2_ssh_prefetch
 PUBLIC randomx_program_loop_store
+PUBLIC randomx_program_loop_store_avx512f
 PUBLIC randomx_program_loop_end
 PUBLIC randomx_program_epilogue
+PUBLIC randomx_program_epilogue_avx512f
 PUBLIC randomx_sshash_load
 PUBLIC randomx_sshash_prefetch
 PUBLIC randomx_sshash_end
@@ -84,10 +89,39 @@ randomx_prefetch_scratchpad_end ENDP
 ALIGN 64
 randomx_program_prologue PROC
 	include asm/program_prologue_win64.inc
+	;# place for vzeroupper
+	nop
+	nop
+	nop
+randomx_program_prologue ENDP
+
+randomx_program_prologue_load_constants PROC
+	;# load constant registers
+	movapd xmm8, xmmword ptr [rcx+72]
+	movapd xmm9, xmmword ptr [rcx+88]
+	movapd xmm10, xmmword ptr [rcx+104]
+	movapd xmm11, xmmword ptr [rcx+120]
+
+	;# load constants
 	movapd xmm13, xmmword ptr [mantissaMask]
 	movapd xmm14, xmmword ptr [exp240]
 	movapd xmm15, xmmword ptr [scaleMask]
-randomx_program_prologue ENDP
+
+	jmp randomx_program_prologue_first_load
+randomx_program_prologue_load_constants ENDP
+
+randomx_program_prologue_load_constants_avx512f PROC
+	;# load constant registers
+	vbroadcasti32x4 zmm8, xmmword ptr [rcx+192]
+	vbroadcasti32x4 zmm9, xmmword ptr [rcx+208]
+	vbroadcasti32x4 zmm10, xmmword ptr [rcx+224]
+	vbroadcasti32x4 zmm11, xmmword ptr [rcx+240]
+
+	;# load constants
+	vbroadcasti32x4 zmm13, xmmword ptr [mantissaMask]
+	vbroadcasti32x4 zmm14, xmmword ptr [exp240]
+	vbroadcasti32x4 zmm15, xmmword ptr [scaleMask]
+randomx_program_prologue_load_constants_avx512f ENDP
 
 randomx_program_prologue_first_load PROC
 	mov rdx, rax
@@ -100,9 +134,6 @@ randomx_program_prologue_first_load PROC
 	mov dword ptr [rsp+8], 0DFC0h
 	mov dword ptr [rsp+12], 0FFC0h
 	mov dword ptr [rsp+32], -1
-	nop
-	nop
-	nop
 	jmp randomx_program_imul_rcp_store
 randomx_program_prologue_first_load ENDP
 
@@ -122,6 +153,10 @@ randomx_program_loop_begin ENDP
 randomx_program_loop_load PROC
 	include asm/program_loop_load.inc
 randomx_program_loop_load ENDP
+
+randomx_program_loop_load_avx512f PROC
+	include asm/program_loop_load_avx512f.inc
+randomx_program_loop_load_avx512f ENDP
 
 randomx_program_loop_load_xop PROC
 	include asm/program_loop_load_xop.inc
@@ -146,6 +181,10 @@ randomx_program_read_dataset_sshash_fin ENDP
 randomx_program_loop_store PROC
 	include asm/program_loop_store.inc
 randomx_program_loop_store ENDP
+
+randomx_program_loop_store_avx512f PROC
+	include asm/program_loop_store_avx512f.inc
+randomx_program_loop_store_avx512f ENDP
 
 randomx_program_loop_end PROC
 	nop
@@ -288,6 +327,12 @@ randomx_program_epilogue PROC
 	include asm/program_epilogue_store.inc
 	include asm/program_epilogue_win64.inc
 randomx_program_epilogue ENDP
+
+randomx_program_epilogue_avx512f PROC
+	include asm/program_epilogue_store_avx512f.inc
+	vzeroupper
+	include asm/program_epilogue_win64.inc
+randomx_program_epilogue_avx512f ENDP
 
 ALIGN 64
 randomx_sshash_load PROC

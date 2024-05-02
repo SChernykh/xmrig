@@ -99,6 +99,7 @@ namespace randomx {
 		bool BranchesWithin32B = false;
 		bool hasAVX;
 		bool hasAVX2;
+		bool hasAVX512F;
 		bool initDatasetAVX2;
 		bool hasXOP;
 

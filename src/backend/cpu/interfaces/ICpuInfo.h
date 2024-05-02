@@ -102,6 +102,7 @@ public:
     virtual bool hasVAES() const                                                    = 0;
     virtual bool hasAVX() const                                                     = 0;
     virtual bool hasAVX2() const                                                    = 0;
+    virtual bool hasAVX512F() const                                                 = 0;
     virtual bool hasBMI2() const                                                    = 0;
     virtual bool hasCatL3() const                                                   = 0;
     virtual bool hasOneGbPages() const                                              = 0;
