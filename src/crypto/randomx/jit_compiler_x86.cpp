@@ -1474,9 +1474,170 @@ namespace randomx {
 		codePos = pos;
 	}
 
-	void JitCompilerX86::h_NOP(const Instruction& instr) {
+	void JitCompilerX86::h_NOP(const Instruction& instr) {}
+
+	void JitCompilerX86::h_FSWAP_R_AVX512VL(const Instruction& instr) {
+		uint8_t* const p = code;
+		uint32_t pos = codePos;
+
+		const uint64_t dst = instr.dst;
+
+		*(uint64_t*)(p + pos) = 0x09C0057DE3C4ULL + ((dst >> 1) * 0x900000000ULL) - ((dst & 1) * 0x30000000000ULL);
+		pos += 6;
+
+		codePos = pos;
+	}
+
+	void JitCompilerX86::h_FADDSUB_R_AVX512VL(const Instruction& instr) {
+		uint8_t* const p = code;
+		uint32_t pos = codePos;
+
+		prevFPOperation = pos;
+
+		const uint64_t dst = static_cast<uint64_t>(instr.dst % RegisterCountFlt) + ((instr.opcode >= add_sub_border) ? RegisterCountFlt : 0);
+		const uint64_t src = instr.src % RegisterCountFlt;
+
+		static alignas(64) const uint64_t t[RegisterCountFlt * 2] = {
+			0xC05829FDD162ULL, 0xC0582AFDD162ULL, 0xC85829F5D162ULL, 0xC8582AF5D162ULL,
+			0xC05C29FDD162ULL, 0xC05C2AFDD162ULL, 0xC85C29F5D162ULL, 0xC85C2AF5D162ULL,
+		};
+
+		*(uint64_t*)(p + pos) = t[dst] + (src << 40);
+		pos += 6;
+
+		codePos = pos;
+	}
+
+	void JitCompilerX86::h_FADDSUB_M_AVX512VL(const Instruction& instr) {
+		uint8_t* const p = code;
+		uint32_t pos = codePos;
+
+		prevFPOperation = pos;
+
+		const uint32_t src = instr.src;
+		const uint32_t dst = instr.dst % RegisterCountFlt;
+
+		genAddressReg<true>(instr, src, p, pos);
+
+		if ((dst & 1) == 0) {
+			*(uint64_t*)(p + pos) = 0x0624E6A97E7162ULL;
+			pos += 7;
+		}
+		else {
+			*(uint64_t*)(p + pos) = 0x06A4E6AA7E7162ULL;
+			*(uint32_t*)(p + pos + 7) = 0xFFFFFFF8UL;
+			pos += 11;
+		}
+
+		static alignas(64) const uint64_t t[RegisterCountFlt * 2] = {
+			0xC45829FDD162ULL, 0xC4582AFDD162ULL, 0xCC5829F5D162ULL, 0xCC582AF5D162ULL,
+			0xC45C29FDD162ULL, 0xC45C2AFDD162ULL, 0xCC5C29F5D162ULL, 0xCC5C2AF5D162ULL,
+		};
+
+		*(uint64_t*)(p + pos) = t[dst + ((instr.opcode >= add_sub_border) ? 4 : 0)];
+		pos += 6;
+
+		codePos = pos;
+	}
+
+	void JitCompilerX86::h_FSCAL_R_AVX512VL(const Instruction& instr) {
+		uint8_t* const p = code;
+		uint32_t pos = codePos;
+
+		const uint32_t dst = instr.dst % RegisterCountFlt;
+
+		static alignas(64) const uint64_t t[RegisterCountFlt] = {
+			0xC75729FDD162ULL, 0xC7572AFDD162ULL, 0xCF5729F5D162ULL, 0xCF572AF5D162ULL,
+		};
+
+		*(uint64_t*)(p + pos) = t[dst];
+		pos += 6;
+
+		codePos = pos;
+	}
+
+	void JitCompilerX86::h_FMUL_R_AVX512VL(const Instruction& instr) {
+		uint8_t* const p = code;
+		uint32_t pos = codePos;
+
+		prevFPOperation = pos;
+
+		const uint64_t dst = instr.dst % RegisterCountFlt;
+		const uint64_t src = instr.src % RegisterCountFlt;
+
+		static alignas(64) const uint64_t t[RegisterCountFlt] = {
+			0xD05929EDD162ULL, 0xD0592AEDD162ULL, 0xD85929E5D162ULL, 0xD8592AE5D162ULL,
+		};
+
+		*(uint64_t*)(p + pos) = t[dst] + (src << 40);
+		pos += 6;
+
+		codePos = pos;
+	}
+
+	void JitCompilerX86::h_FDIV_M_AVX512VL(const Instruction& instr) {
+		uint8_t* const p = code;
+		uint32_t pos = codePos;
+
+		prevFPOperation = pos;
+
+		const uint32_t src = instr.src;
+		const uint64_t dst = instr.dst % RegisterCountFlt;
+
+		genAddressReg<true>(instr, src, p, pos);
+
+		static alignas(64) const uint8_t t[128] = {
+			0x62, 0x71, 0x7E, 0x29, 0xE6, 0x24, 0x06,
+			0xC4, 0x41, 0x1D, 0x54, 0xE5,
+			0xC4, 0x41, 0x1D, 0x56, 0xE6,
+			0x62, 0xD1, 0xED, 0x29, 0x5E, 0xD4,
+			0, 0, 0, 0, 0, 0, 0, 0, 0,
+
+			0x62, 0x71, 0x7E, 0x2A, 0xE6, 0xA4, 0x06, 0xF8, 0xFF, 0xFF, 0xFF,
+			0xC4, 0x41, 0x1D, 0x54, 0xE5,
+			0xC4, 0x41, 0x1D, 0x56, 0xE6,
+			0x62, 0xD1, 0xED, 0x2A, 0x5E, 0xD4,
+			0, 0, 0, 0, 0,
+
+			0x62, 0x71, 0x7E, 0x29, 0xE6, 0x24, 0x06,
+			0xC4, 0x41, 0x1D, 0x54, 0xE5,
+			0xC4, 0x41, 0x1D, 0x56, 0xE6,
+			0x62, 0xD1, 0xE5, 0x29, 0x5E, 0xDC,
+			0, 0, 0, 0, 0, 0, 0, 0, 0,
+
+			0x62, 0x71, 0x7E, 0x2A, 0xE6, 0xA4, 0x06, 0xF8, 0xFF, 0xFF, 0xFF,
+			0xC4, 0x41, 0x1D, 0x54, 0xE5,
+			0xC4, 0x41, 0x1D, 0x56, 0xE6,
+			0x62, 0xD1, 0xE5, 0x2A, 0x5E, 0xDC,
+			0, 0, 0, 0, 0,
+		};
+
+		const size_t N = (dst & 1) ? 27 : 23;
+
+		memcpy(p + pos, t + (dst << 5), N);
+		pos += N;
+
+		codePos = pos;
+	}
+
+	void JitCompilerX86::h_FSQRT_R_AVX512VL(const Instruction& instr) {
+		uint8_t* const p = code;
+		uint32_t pos = codePos;
+
+		prevFPOperation = pos;
+
+		const uint32_t dst = instr.dst % RegisterCountFlt;
+
+		static alignas(64) const uint64_t t[RegisterCountFlt] = {
+			0xD25129FDF162ULL, 0xD2512AFDF162ULL, 0xDB5129FDF162ULL, 0xDB512AFDF162ULL,
+		};
+
+		*(uint64_t*)(p + pos) = t[dst];
+		pos += 6;
+
+		codePos = pos;
 	}
 
 	alignas(64) InstructionGeneratorX86 JitCompilerX86::engine[256] = {};
-
+	uint32_t JitCompilerX86::add_sub_border = 0;
 }

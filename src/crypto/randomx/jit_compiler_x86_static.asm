@@ -120,6 +120,14 @@ randomx_program_prologue_load_constants_avx512vl PROC
 	vperm2f128 ymm13, ymm13, ymm13, 0
 	vperm2f128 ymm14, ymm14, ymm14, 0
 	vperm2f128 ymm15, ymm15, ymm15, 0
+
+	;# mask for low 128 bits
+	mov edx, 3
+	kmovb k1, edx
+
+	;# mask for high 128 bits
+	mov edx, 12
+	kmovb k2, edx
 randomx_program_prologue_load_constants_avx512vl ENDP
 
 randomx_program_prologue_first_load PROC

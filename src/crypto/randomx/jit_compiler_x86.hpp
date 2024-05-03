@@ -82,6 +82,7 @@ namespace randomx {
 		void enableExecution() const;
 
 		alignas(64) static InstructionGeneratorX86 engine[256];
+		static uint32_t add_sub_border;
 
 	private:
 		int registerUsage[RegistersCount] = {};
@@ -182,5 +183,13 @@ namespace randomx {
 		void h_CFROUND_BMI2(const Instruction&);
 		void h_ISTORE(const Instruction&);
 		void h_NOP(const Instruction&);
+
+		void h_FSWAP_R_AVX512VL(const Instruction&);
+		void h_FADDSUB_R_AVX512VL(const Instruction&);
+		void h_FADDSUB_M_AVX512VL(const Instruction&);
+		void h_FSCAL_R_AVX512VL(const Instruction&);
+		void h_FMUL_R_AVX512VL(const Instruction&);
+		void h_FDIV_M_AVX512VL(const Instruction&);
+		void h_FSQRT_R_AVX512VL(const Instruction&);
 	};
 }

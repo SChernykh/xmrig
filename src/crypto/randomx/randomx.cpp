@@ -134,19 +134,19 @@ RandomX_ConfigurationBase::RandomX_ConfigurationBase()
 	, RANDOMX_FREQ_IROR_R(8)
 	, RANDOMX_FREQ_IROL_R(2)
 	, RANDOMX_FREQ_ISWAP_R(4)
-	, RANDOMX_FREQ_FSWAP_R(0)
-	, RANDOMX_FREQ_FADD_R(0)
-	, RANDOMX_FREQ_FADD_M(0)
-	, RANDOMX_FREQ_FSUB_R(0)
-	, RANDOMX_FREQ_FSUB_M(0)
-	, RANDOMX_FREQ_FSCAL_R(0)
-	, RANDOMX_FREQ_FMUL_R(0)
-	, RANDOMX_FREQ_FDIV_M(0)
-	, RANDOMX_FREQ_FSQRT_R(0)
+	, RANDOMX_FREQ_FSWAP_R(4)
+	, RANDOMX_FREQ_FADD_R(16)
+	, RANDOMX_FREQ_FADD_M(5)
+	, RANDOMX_FREQ_FSUB_R(16)
+	, RANDOMX_FREQ_FSUB_M(5)
+	, RANDOMX_FREQ_FSCAL_R(6)
+	, RANDOMX_FREQ_FMUL_R(32)
+	, RANDOMX_FREQ_FDIV_M(4)
+	, RANDOMX_FREQ_FSQRT_R(6)
 	, RANDOMX_FREQ_CBRANCH(25)
-	, RANDOMX_FREQ_CFROUND(0)
+	, RANDOMX_FREQ_CFROUND(1)
 	, RANDOMX_FREQ_ISTORE(16)
-	, RANDOMX_FREQ_NOP(95)
+	, RANDOMX_FREQ_NOP(0)
 {
 	fillAes4Rx4_Key[0] = rx_set_int_vec_i128(0x99e5d23f, 0x2f546d2b, 0xd1833ddb, 0x6421aadd);
 	fillAes4Rx4_Key[1] = rx_set_int_vec_i128(0xa5dfcde5, 0x06f79d53, 0xb6913f55, 0xb20e3450);
@@ -222,6 +222,7 @@ void RandomX_ConfigurationBase::Apply()
 	//*(uint32_t*)(codeReadDatasetLightSshInitTweaked + 59) = DatasetBaseMask;
 
 	const bool hasBMI2 = xmrig::Cpu::info()->hasBMI2();
+	const bool hasAVX512VL = xmrig::Cpu::info()->hasAVX512VL();
 
 	*(uint32_t*)(codePrefetchScratchpadTweaked + (hasBMI2 ? 7 : 4)) = ScratchpadL3Mask64_Calculated;
 	*(uint32_t*)(codePrefetchScratchpadTweaked + (hasBMI2 ? 17 : 18)) = ScratchpadL3Mask64_Calculated;
@@ -316,15 +317,33 @@ typedef void(randomx::JitCompilerX86::* InstructionGeneratorX86_2)(const randomx
 	INST_HANDLE(IROR_R, IXOR_M);
 	INST_HANDLE(IROL_R, IROR_R);
 	INST_HANDLE(ISWAP_R, IROL_R);
-	INST_HANDLE(FSWAP_R, ISWAP_R);
-	INST_HANDLE(FADD_R, FSWAP_R);
-	INST_HANDLE(FADD_M, FADD_R);
-	INST_HANDLE(FSUB_R, FADD_M);
-	INST_HANDLE(FSUB_M, FSUB_R);
-	INST_HANDLE(FSCAL_R, FSUB_M);
-	INST_HANDLE(FMUL_R, FSCAL_R);
-	INST_HANDLE(FDIV_M, FMUL_R);
-	INST_HANDLE(FSQRT_R, FDIV_M);
+
+#if defined(XMRIG_FEATURE_ASM) && (defined(_M_X64) || defined(__x86_64__))
+	if (hasAVX512VL) {
+		INST_HANDLE2(FSWAP_R, FSWAP_R_AVX512VL, ISWAP_R);
+		INST_HANDLE2(FADD_R, FADDSUB_R_AVX512VL, FSWAP_R);
+		INST_HANDLE2(FADD_M, FADDSUB_M_AVX512VL, FADD_R);
+		randomx::JitCompilerX86::add_sub_border = k;
+		INST_HANDLE2(FSUB_R, FADDSUB_R_AVX512VL, FADD_M);
+		INST_HANDLE2(FSUB_M, FADDSUB_M_AVX512VL, FSUB_R);
+		INST_HANDLE2(FSCAL_R, FSCAL_R_AVX512VL, FSUB_M);
+		INST_HANDLE2(FMUL_R, FMUL_R_AVX512VL, FSCAL_R);
+		INST_HANDLE2(FDIV_M, FDIV_M_AVX512VL, FMUL_R);
+		INST_HANDLE2(FSQRT_R, FSQRT_R_AVX512VL, FDIV_M);
+	}
+	else
+#endif
+	{
+		INST_HANDLE(FSWAP_R, ISWAP_R);
+		INST_HANDLE(FADD_R, FSWAP_R);
+		INST_HANDLE(FADD_M, FADD_R);
+		INST_HANDLE(FSUB_R, FADD_M);
+		INST_HANDLE(FSUB_M, FSUB_R);
+		INST_HANDLE(FSCAL_R, FSUB_M);
+		INST_HANDLE(FMUL_R, FSCAL_R);
+		INST_HANDLE(FDIV_M, FMUL_R);
+		INST_HANDLE(FSQRT_R, FDIV_M);
+	}
 
 #if defined(_M_X64) || defined(__x86_64__)
 	if (xmrig::Cpu::info()->jccErratum()) {
