@@ -9,5 +9,7 @@
 	mov qword ptr [rcx+40], r13
 	mov qword ptr [rcx+48], r14
 	mov qword ptr [rcx+56], r15
-	vmovdqa32 zmmword ptr [rcx+64], zmm0
-	vmovdqa32 zmmword ptr [rcx+128], zmm1
+	vmovdqa ymmword ptr [rcx+64], ymm0
+	vmovdqa ymmword ptr [rcx+96], ymm1
+	vmovdqa ymmword ptr [rcx+128], ymm2
+	vmovdqa ymmword ptr [rcx+160], ymm3

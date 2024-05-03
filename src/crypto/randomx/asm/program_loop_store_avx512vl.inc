@@ -8,5 +8,7 @@
 	mov qword ptr [rcx+48], r14
 	mov qword ptr [rcx+56], r15
 	mov rcx, [rsp+16]
-	vpxord zmm0, zmm0, zmm1
-	vmovdqa32 zmmword ptr [rcx+0], zmm0
+	vxorpd ymm0, ymm0, ymm2
+	vxorpd ymm1, ymm1, ymm3
+	vmovdqa ymmword ptr [rcx+0], ymm0
+	vmovdqa ymmword ptr [rcx+32], ymm1

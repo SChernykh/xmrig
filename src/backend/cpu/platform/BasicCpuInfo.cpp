@@ -58,8 +58,8 @@
 namespace xmrig {
 
 
-constexpr size_t kCpuFlagsSize                                  = 15;
-static const std::array<const char *, kCpuFlagsSize> flagNames  = { "aes", "vaes", "avx", "avx2", "avx512f", "bmi2", "osxsave", "pdpe1gb", "sse2", "ssse3", "sse4.1", "xop", "popcnt", "cat_l3", "vm" };
+constexpr size_t kCpuFlagsSize                                  = 16;
+static const std::array<const char *, kCpuFlagsSize> flagNames  = { "aes", "vaes", "avx", "avx2", "avx512f", "avx512vl", "bmi2", "osxsave", "pdpe1gb", "sse2", "ssse3", "sse4.1", "xop", "popcnt", "cat_l3", "vm" };
 static_assert(kCpuFlagsSize == ICpuInfo::FLAG_MAX, "kCpuFlagsSize and FLAG_MAX mismatch");
 
 
@@ -148,6 +148,7 @@ static inline bool has_avx()        { return has_feature(PROCESSOR_INFO,        
 static inline bool has_avx2()       { return has_feature(EXTENDED_FEATURES,     EBX_Reg, 1 << 5) && has_osxsave() && has_xcr_avx(); }
 static inline bool has_vaes()       { return has_feature(EXTENDED_FEATURES,     ECX_Reg, 1 << 9) && has_osxsave() && has_xcr_avx(); }
 static inline bool has_avx512f()    { return has_feature(EXTENDED_FEATURES,     EBX_Reg, 1 << 16) && has_osxsave() && has_xcr_avx512(); }
+static inline bool has_avx512vl()   { return has_feature(EXTENDED_FEATURES,     EBX_Reg, 1 << 31) && has_osxsave() && (has_xcr_avx() || has_xcr_avx512()); }
 static inline bool has_bmi2()       { return has_feature(EXTENDED_FEATURES,     EBX_Reg, 1 << 8); }
 static inline bool has_pdpe1gb()    { return has_feature(PROCESSOR_EXT_INFO,    EDX_Reg, 1 << 26); }
 static inline bool has_sse2()       { return has_feature(PROCESSOR_INFO,        EDX_Reg, 1 << 26); }
@@ -166,11 +167,11 @@ static inline bool is_vm()          { return has_feature(PROCESSOR_INFO,        
 extern "C" {
 
 
-int cpu_flags_has_avx2()    { return xmrig::has_avx2(); }
-int cpu_flags_has_avx512f() { return xmrig::has_avx512f(); }
-int cpu_flags_has_sse2()    { return xmrig::has_sse2(); }
-int cpu_flags_has_ssse3()   { return xmrig::has_ssse3(); }
-int cpu_flags_has_xop()     { return xmrig::has_xop(); }
+int cpu_flags_has_avx2()     { return xmrig::has_avx2(); }
+int cpu_flags_has_avx512f()  { return xmrig::has_avx512f(); }
+int cpu_flags_has_sse2()     { return xmrig::has_sse2(); }
+int cpu_flags_has_ssse3()    { return xmrig::has_ssse3(); }
+int cpu_flags_has_xop()      { return xmrig::has_xop(); }
 
 
 }
@@ -182,21 +183,22 @@ xmrig::BasicCpuInfo::BasicCpuInfo() :
 {
     cpu_brand_string(m_brand);
 
-    m_flags.set(FLAG_AES,     has_aes_ni());
-    m_flags.set(FLAG_AVX,     has_avx());
-    m_flags.set(FLAG_AVX2,    has_avx2());
-    m_flags.set(FLAG_VAES,    has_vaes());
-    m_flags.set(FLAG_AVX512F, has_avx512f());
-    m_flags.set(FLAG_BMI2,    has_bmi2());
-    m_flags.set(FLAG_OSXSAVE, has_osxsave());
-    m_flags.set(FLAG_PDPE1GB, has_pdpe1gb());
-    m_flags.set(FLAG_SSE2,    has_sse2());
-    m_flags.set(FLAG_SSSE3,   has_ssse3());
-    m_flags.set(FLAG_SSE41,   has_sse41());
-    m_flags.set(FLAG_XOP,     has_xop());
-    m_flags.set(FLAG_POPCNT,  has_popcnt());
-    m_flags.set(FLAG_CAT_L3,  has_cat_l3());
-    m_flags.set(FLAG_VM,      is_vm());
+    m_flags.set(FLAG_AES,      has_aes_ni());
+    m_flags.set(FLAG_AVX,      has_avx());
+    m_flags.set(FLAG_AVX2,     has_avx2());
+    m_flags.set(FLAG_VAES,     has_vaes());
+    m_flags.set(FLAG_AVX512F,  has_avx512f());
+    m_flags.set(FLAG_AVX512VL, has_avx512vl());
+    m_flags.set(FLAG_BMI2,     has_bmi2());
+    m_flags.set(FLAG_OSXSAVE,  has_osxsave());
+    m_flags.set(FLAG_PDPE1GB,  has_pdpe1gb());
+    m_flags.set(FLAG_SSE2,     has_sse2());
+    m_flags.set(FLAG_SSSE3,    has_ssse3());
+    m_flags.set(FLAG_SSE41,    has_sse41());
+    m_flags.set(FLAG_XOP,      has_xop());
+    m_flags.set(FLAG_POPCNT,   has_popcnt());
+    m_flags.set(FLAG_CAT_L3,   has_cat_l3());
+    m_flags.set(FLAG_VM,       is_vm());
 
     m_units.resize(m_threads);
     for (int32_t i = 0; i < static_cast<int32_t>(m_threads); ++i) {

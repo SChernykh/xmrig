@@ -33,12 +33,12 @@ PUBLIC randomx_prefetch_scratchpad_bmi2
 PUBLIC randomx_prefetch_scratchpad_end
 PUBLIC randomx_program_prologue
 PUBLIC randomx_program_prologue_load_constants
-PUBLIC randomx_program_prologue_load_constants_avx512f
+PUBLIC randomx_program_prologue_load_constants_avx512vl
 PUBLIC randomx_program_prologue_first_load
 PUBLIC randomx_program_imul_rcp_store
 PUBLIC randomx_program_loop_begin
 PUBLIC randomx_program_loop_load
-PUBLIC randomx_program_loop_load_avx512f
+PUBLIC randomx_program_loop_load_avx512vl
 PUBLIC randomx_program_loop_load_xop
 PUBLIC randomx_program_start
 PUBLIC randomx_program_read_dataset
@@ -51,10 +51,10 @@ PUBLIC randomx_dataset_init_avx2_epilogue
 PUBLIC randomx_dataset_init_avx2_ssh_load
 PUBLIC randomx_dataset_init_avx2_ssh_prefetch
 PUBLIC randomx_program_loop_store
-PUBLIC randomx_program_loop_store_avx512f
+PUBLIC randomx_program_loop_store_avx512vl
 PUBLIC randomx_program_loop_end
 PUBLIC randomx_program_epilogue
-PUBLIC randomx_program_epilogue_avx512f
+PUBLIC randomx_program_epilogue_avx512vl
 PUBLIC randomx_sshash_load
 PUBLIC randomx_sshash_prefetch
 PUBLIC randomx_sshash_end
@@ -107,21 +107,20 @@ randomx_program_prologue_load_constants PROC
 	movapd xmm14, xmmword ptr [exp240]
 	movapd xmm15, xmmword ptr [scaleMask]
 
-	jmp randomx_program_prologue_first_load
+	;# JIT compiler will remove this jump if AVX512VL is used
+	jmp short randomx_program_prologue_first_load
 randomx_program_prologue_load_constants ENDP
 
-randomx_program_prologue_load_constants_avx512f PROC
-	;# load constant registers
-	vbroadcasti32x4 zmm8, xmmword ptr [rcx+192]
-	vbroadcasti32x4 zmm9, xmmword ptr [rcx+208]
-	vbroadcasti32x4 zmm10, xmmword ptr [rcx+224]
-	vbroadcasti32x4 zmm11, xmmword ptr [rcx+240]
+randomx_program_prologue_load_constants_avx512vl PROC
+	vperm2f128 ymm8,  ymm8,  ymm8,  0	;# stores (A0, A0)
+	vperm2f128 ymm9,  ymm9,  ymm9,  0	;# stores (A1, A1)
+	vperm2f128 ymm10, ymm10, ymm10, 0	;# stores (A2, A2)
+	vperm2f128 ymm11, ymm11, ymm11, 0	;# stores (A3, A3)
 
-	;# load constants
-	vbroadcasti32x4 zmm13, xmmword ptr [mantissaMask]
-	vbroadcasti32x4 zmm14, xmmword ptr [exp240]
-	vbroadcasti32x4 zmm15, xmmword ptr [scaleMask]
-randomx_program_prologue_load_constants_avx512f ENDP
+	vperm2f128 ymm13, ymm13, ymm13, 0
+	vperm2f128 ymm14, ymm14, ymm14, 0
+	vperm2f128 ymm15, ymm15, ymm15, 0
+randomx_program_prologue_load_constants_avx512vl ENDP
 
 randomx_program_prologue_first_load PROC
 	mov rdx, rax
@@ -154,9 +153,9 @@ randomx_program_loop_load PROC
 	include asm/program_loop_load.inc
 randomx_program_loop_load ENDP
 
-randomx_program_loop_load_avx512f PROC
-	include asm/program_loop_load_avx512f.inc
-randomx_program_loop_load_avx512f ENDP
+randomx_program_loop_load_avx512vl PROC
+	include asm/program_loop_load_avx512vl.inc
+randomx_program_loop_load_avx512vl ENDP
 
 randomx_program_loop_load_xop PROC
 	include asm/program_loop_load_xop.inc
@@ -182,9 +181,9 @@ randomx_program_loop_store PROC
 	include asm/program_loop_store.inc
 randomx_program_loop_store ENDP
 
-randomx_program_loop_store_avx512f PROC
-	include asm/program_loop_store_avx512f.inc
-randomx_program_loop_store_avx512f ENDP
+randomx_program_loop_store_avx512vl PROC
+	include asm/program_loop_store_avx512vl.inc
+randomx_program_loop_store_avx512vl ENDP
 
 randomx_program_loop_end PROC
 	nop
@@ -328,11 +327,11 @@ randomx_program_epilogue PROC
 	include asm/program_epilogue_win64.inc
 randomx_program_epilogue ENDP
 
-randomx_program_epilogue_avx512f PROC
-	include asm/program_epilogue_store_avx512f.inc
+randomx_program_epilogue_avx512vl PROC
+	include asm/program_epilogue_store_avx512vl.inc
 	vzeroupper
 	include asm/program_epilogue_win64.inc
-randomx_program_epilogue_avx512f ENDP
+randomx_program_epilogue_avx512vl ENDP
 
 ALIGN 64
 randomx_sshash_load PROC

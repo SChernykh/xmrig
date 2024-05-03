@@ -48,6 +48,7 @@ protected:
     inline bool hasAVX() const override                         { return has(FLAG_AVX); }
     inline bool hasAVX2() const override                        { return has(FLAG_AVX2); }
     inline bool hasAVX512F() const override                     { return has(FLAG_AVX512F); }
+    inline bool hasAVX512VL() const override                    { return has(FLAG_AVX512VL); }
     inline bool hasBMI2() const override                        { return has(FLAG_BMI2); }
     inline bool hasCatL3() const override                       { return has(FLAG_CAT_L3); }
     inline bool hasOneGbPages() const override                  { return has(FLAG_PDPE1GB); }

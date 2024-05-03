@@ -10,7 +10,11 @@
 	xor r15, qword ptr [rcx+56]
 	lea rcx, [rsi+rdx]
 	mov [rsp+24], rcx
-	vcvtdq2pd zmm0, ymmword ptr [rcx+0]
-	vcvtdq2pd zmm1, ymmword ptr [rcx+32]
-	vpandd zmm1, zmm1, zmm13
-	vpord zmm1, zmm1, zmm14
+	vcvtdq2pd ymm0, xmmword ptr [rcx+0]
+	vcvtdq2pd ymm1, xmmword ptr [rcx+16]
+	vcvtdq2pd ymm2, xmmword ptr [rcx+32]
+	vcvtdq2pd ymm3, xmmword ptr [rcx+48]
+	vandpd ymm2, ymm2, ymm13
+	vandpd ymm3, ymm3, ymm13
+	vorpd ymm2, ymm2, ymm14
+	vorpd ymm3, ymm3, ymm14
