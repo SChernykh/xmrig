@@ -234,7 +234,7 @@ namespace randomx {
 
 		hasAVX = xmrig::Cpu::info()->hasAVX();
 		hasAVX2 = xmrig::Cpu::info()->hasAVX2();
-		hasAVX512VL = xmrig::Cpu::info()->hasAVX512VL();
+		hasAVX512 = xmrig::Cpu::info()->hasAVX512F() && xmrig::Cpu::info()->hasAVX512VL();
 
 		// Disable by default
 		initDatasetAVX2 = false;
@@ -301,7 +301,7 @@ namespace randomx {
 		code = allocatedCode + (codeOffset.fetch_add(codeOffsetIncrement) % CodeSize);
 
 		memcpy(code, codePrologue, prologueSize);
-		if (hasAVX512VL) {
+		if (hasAVX512) {
 			memcpy(code + prologueSize, codeLoopLoadAVX512VL, loopLoadAVX512VLSize);
 			codePosFirst = prologueSize + loopLoadAVX512VLSize;
 			memcpy(code + epilogueAVX512VLOffset, codeEpilogueAVX512VL, epilogueAVX512VLSize);
@@ -317,14 +317,14 @@ namespace randomx {
 			memcpy(code + epilogueOffset, codeEpilogue, epilogueSize);
 		}
 
-		if (hasAVX512VL) {
+		if (hasAVX512) {
 			// Remove the jump instruction that skips the AVX code
 			memcpy(code + (codePrologueLoadConstantsAVX512VL - codePrologue) - 2, NOP2, 2);
 		}
 
 #		ifdef XMRIG_FIX_RYZEN
 		mainLoopBounds.first = code + prologueSize;
-		mainLoopBounds.second = code + (hasAVX512VL ? epilogueAVX512VLOffset : epilogueOffset);
+		mainLoopBounds.second = code + (hasAVX512 ? epilogueAVX512VLOffset : epilogueOffset);
 #		endif
 	}
 
@@ -495,7 +495,7 @@ namespace randomx {
 		codePos += 6;
 		emit(RandomX_CurrentConfig.codePrefetchScratchpadTweaked, RandomX_CurrentConfig.codePrefetchScratchpadTweakedSize, code, codePos);
 
-		if (hasAVX512VL) {
+		if (hasAVX512) {
 			memcpy(code + codePos, codeLoopStoreAVX512VL, loopStoreAVX512VLSize);
 			codePos += loopStoreAVX512VLSize;
 		}
@@ -524,7 +524,7 @@ namespace randomx {
 		emit32(prologueSize - codePos - 4, code, codePos);
 		emitByte(0xe9, code, codePos);
 
-		if (hasAVX512VL) {
+		if (hasAVX512) {
 			emit32(epilogueAVX512VLOffset - codePos - 4, code, codePos);
 		}
 		else {
@@ -1520,11 +1520,11 @@ namespace randomx {
 		genAddressReg<true>(instr, src, p, pos);
 
 		if ((dst & 1) == 0) {
-			*(uint64_t*)(p + pos) = 0x0624E6A97E7162ULL;
+			*(uint64_t*)(p + pos) = 0x0624E6297E7162ULL;
 			pos += 7;
 		}
 		else {
-			*(uint64_t*)(p + pos) = 0x06A4E6AA7E7162ULL;
+			*(uint64_t*)(p + pos) = 0x06A4E62A7E7162ULL;
 			*(uint32_t*)(p + pos + 7) = 0xFFFFFFF8UL;
 			pos += 11;
 		}

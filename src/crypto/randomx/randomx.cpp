@@ -222,7 +222,7 @@ void RandomX_ConfigurationBase::Apply()
 	//*(uint32_t*)(codeReadDatasetLightSshInitTweaked + 59) = DatasetBaseMask;
 
 	const bool hasBMI2 = xmrig::Cpu::info()->hasBMI2();
-	const bool hasAVX512VL = xmrig::Cpu::info()->hasAVX512VL();
+	const bool hasAVX512 = xmrig::Cpu::info()->hasAVX512F() && xmrig::Cpu::info()->hasAVX512VL();
 
 	*(uint32_t*)(codePrefetchScratchpadTweaked + (hasBMI2 ? 7 : 4)) = ScratchpadL3Mask64_Calculated;
 	*(uint32_t*)(codePrefetchScratchpadTweaked + (hasBMI2 ? 17 : 18)) = ScratchpadL3Mask64_Calculated;
@@ -319,7 +319,7 @@ typedef void(randomx::JitCompilerX86::* InstructionGeneratorX86_2)(const randomx
 	INST_HANDLE(ISWAP_R, IROL_R);
 
 #if defined(XMRIG_FEATURE_ASM) && (defined(_M_X64) || defined(__x86_64__))
-	if (hasAVX512VL) {
+	if (hasAVX512) {
 		INST_HANDLE2(FSWAP_R, FSWAP_R_AVX512VL, ISWAP_R);
 		INST_HANDLE2(FADD_R, FADDSUB_R_AVX512VL, FSWAP_R);
 		INST_HANDLE2(FADD_M, FADDSUB_M_AVX512VL, FADD_R);
