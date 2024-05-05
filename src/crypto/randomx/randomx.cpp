@@ -259,6 +259,11 @@ void RandomX_ConfigurationBase::Apply()
 
 typedef void(randomx::JitCompilerX86::* InstructionGeneratorX86_2)(const randomx::Instruction&);
 
+#define MARK_INSTRUCTION_BORDERS(x, a, b) do { \
+		randomx::JitCompilerX86::instruction_borders[static_cast<size_t>(randomx::InstructionType::x)][0] = a; \
+		randomx::JitCompilerX86::instruction_borders[static_cast<size_t>(randomx::InstructionType::x)][1] = b; \
+	} while (0)
+
 #define JIT_HANDLE(x, prev) do { \
 		const InstructionGeneratorX86_2 p = &randomx::JitCompilerX86::h_##x; \
 		memcpy(randomx::JitCompilerX86::engine + k, &p, sizeof(randomx::JitCompilerX86::engine[k])); \
@@ -272,9 +277,11 @@ typedef void(randomx::JitCompilerX86::* InstructionGeneratorX86_2)(const randomx
 	Log2_DatasetBaseSize = Log2(DatasetBaseSize);
 	Log2_CacheSize = Log2((ArgonMemory * randomx::ArgonBlockSize) / randomx::CacheLineSize);
 
+#define MARK_INSTRUCTION_BORDERS(x, a, b) do {} while (0)
 #define JIT_HANDLE(x, prev) randomx::JitCompilerA64::engine[k] = &randomx::JitCompilerA64::h_##x
 
 #else
+#define MARK_INSTRUCTION_BORDERS(x, a, b) do {} while (0)
 #define JIT_HANDLE(x, prev)
 #endif
 
@@ -282,10 +289,12 @@ typedef void(randomx::JitCompilerX86::* InstructionGeneratorX86_2)(const randomx
 	uint32_t freq_sum = 0;
 
 #define INST_HANDLE(x, prev) \
+	MARK_INSTRUCTION_BORDERS(x, freq_sum, RANDOMX_FREQ_##x); \
 	freq_sum += RANDOMX_FREQ_##x; \
 	for (; k < freq_sum; ++k) { JIT_HANDLE(x, prev); }
 
 #define INST_HANDLE2(x, func_name, prev) \
+	MARK_INSTRUCTION_BORDERS(x, freq_sum, RANDOMX_FREQ_##x); \
 	freq_sum += RANDOMX_FREQ_##x; \
 	for (; k < freq_sum; ++k) { JIT_HANDLE(func_name, prev); }
 
@@ -323,7 +332,6 @@ typedef void(randomx::JitCompilerX86::* InstructionGeneratorX86_2)(const randomx
 		INST_HANDLE2(FSWAP_R, FSWAP_R_AVX512VL, ISWAP_R);
 		INST_HANDLE2(FADD_R, FADDSUB_R_AVX512VL, FSWAP_R);
 		INST_HANDLE2(FADD_M, FADDSUB_M_AVX512VL, FADD_R);
-		randomx::JitCompilerX86::add_sub_border = k;
 		INST_HANDLE2(FSUB_R, FADDSUB_R_AVX512VL, FADD_M);
 		INST_HANDLE2(FSUB_M, FADDSUB_M_AVX512VL, FSUB_R);
 		INST_HANDLE2(FSCAL_R, FSCAL_R_AVX512VL, FSUB_M);
@@ -369,6 +377,32 @@ typedef void(randomx::JitCompilerX86::* InstructionGeneratorX86_2)(const randomx
 	INST_HANDLE(ISTORE, CFROUND);
 	INST_HANDLE(NOP, ISTORE);
 #undef INST_HANDLE
+
+#if defined(XMRIG_FEATURE_ASM) && (defined(_M_X64) || defined(__x86_64__))
+	memset(randomx::JitCompilerX86::instruction_type, 0, sizeof(randomx::JitCompilerX86::instruction_type));
+
+#define B0(x) randomx::JitCompilerX86::instruction_borders[static_cast<size_t>(randomx::InstructionType::x)]
+#define B1(x, y) for (uint32_t i = B0(x)[0], e = B0(x)[0] + B0(x)[1]; i < e; ++i) randomx::JitCompilerX86::instruction_type[i] = y
+
+	B1(CBRANCH, 1);
+	B1(IMUL_RCP, 2);
+	B1(ISWAP_R, 3);
+	B1(FSWAP_R, 4);
+	B1(FADD_R, 4);
+	B1(FADD_M, 4);
+	B1(FSUB_R, 4);
+	B1(FSUB_M, 4);
+	B1(FSCAL_R, 4);
+	B1(FMUL_R, 4);
+	B1(FDIV_M, 4);
+	B1(FSQRT_R, 4);
+	B1(CFROUND, 5);
+	B1(ISTORE, 6);
+
+#undef B1
+#undef B0
+
+#endif
 }
 
 RandomX_ConfigurationMonero RandomX_MoneroConfig;

@@ -108,7 +108,7 @@ randomx_program_prologue_load_constants PROC
 	movapd xmm15, xmmword ptr [scaleMask]
 
 	;# JIT compiler will remove this jump if AVX512VL is used
-	jmp short randomx_program_prologue_first_load
+	jmp randomx_program_prologue_first_load
 randomx_program_prologue_load_constants ENDP
 
 randomx_program_prologue_load_constants_avx512vl PROC
@@ -128,6 +128,50 @@ randomx_program_prologue_load_constants_avx512vl PROC
 	;# mask for high 128 bits
 	mov edx, 12
 	kmovw k2, edx
+
+	vmovaps  ymm16, ymm8             ;# stores (A0, A0)
+
+	vblendpd ymm12, ymm8, ymm9,  12  ;# stores (A0, A1)
+	vmovaps  ymm17, ymm12
+
+	vblendpd ymm12, ymm8, ymm10, 12  ;# stores (A0, A2)
+	vmovaps  ymm18, ymm12
+
+	vblendpd ymm12, ymm8, ymm11, 12  ;# stores (A0, A3)
+	vmovaps  ymm19, ymm12
+
+	vblendpd ymm12, ymm9, ymm8,  12  ;# stores (A1, A0)
+	vmovaps  ymm20, ymm12
+
+	vmovaps  ymm21, ymm9             ;# stores (A1, A1)
+
+	vblendpd ymm12, ymm9, ymm10, 12  ;# stores (A1, A2)
+	vmovaps  ymm22, ymm12
+
+	vblendpd ymm12, ymm9, ymm11, 12  ;# stores (A1, A3)
+	vmovaps  ymm23, ymm12
+
+	vblendpd ymm12, ymm10, ymm8, 12  ;# stores (A2, A0)
+	vmovaps  ymm24, ymm12
+
+	vblendpd ymm12, ymm10, ymm9, 12  ;# stores (A2, A1)
+	vmovaps  ymm25, ymm12
+
+	vmovaps  ymm26, ymm10            ;# stores (A2, A2)
+
+	vblendpd ymm12, ymm10, ymm11, 12 ;# stores (A2, A3)
+	vmovaps  ymm27, ymm12
+
+	vblendpd ymm12, ymm11, ymm8, 12  ;# stores (A3, A0)
+	vmovaps  ymm28, ymm12
+
+	vblendpd ymm12, ymm11, ymm9, 12  ;# stores (A3, A1)
+	vmovaps  ymm29, ymm12
+
+	vblendpd ymm12, ymm11, ymm10, 12 ;# stores (A3, A2)
+	vmovaps  ymm30, ymm12
+
+	vmovaps  ymm31, ymm11            ;# stores (A3, A3)
 randomx_program_prologue_load_constants_avx512vl ENDP
 
 randomx_program_prologue_first_load PROC

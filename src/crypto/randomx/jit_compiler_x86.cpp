@@ -230,11 +230,13 @@ namespace randomx {
 	constexpr size_t codeOffsetIncrement = 59 * 64;
 
 	JitCompilerX86::JitCompilerX86(bool hugePagesEnable, bool optimizedInitDatasetEnable) {
-		BranchesWithin32B = xmrig::Cpu::info()->jccErratum();
+		const xmrig::ICpuInfo* info = xmrig::Cpu::info();
 
-		hasAVX = xmrig::Cpu::info()->hasAVX();
-		hasAVX2 = xmrig::Cpu::info()->hasAVX2();
-		hasAVX512 = xmrig::Cpu::info()->hasAVX512F() && xmrig::Cpu::info()->hasAVX512VL();
+		BranchesWithin32B = info->jccErratum();
+
+		hasAVX = info->hasAVX();
+		hasAVX2 = info->hasAVX2();
+		hasAVX512 = info->hasAVX512F() && info->hasAVX512VL();
 
 		// Disable by default
 		initDatasetAVX2 = false;
@@ -248,12 +250,12 @@ namespace randomx {
 				initDatasetAVX2 = true;
 			}
 			else if (optimizedDatasetInit < 0) {
-				xmrig::ICpuInfo::Vendor vendor = xmrig::Cpu::info()->vendor();
-				xmrig::ICpuInfo::Arch arch = xmrig::Cpu::info()->arch();
+				xmrig::ICpuInfo::Vendor vendor = info->vendor();
+				xmrig::ICpuInfo::Arch arch = info->arch();
 
 				if (vendor == xmrig::ICpuInfo::VENDOR_INTEL) {
 					// AVX2 init is faster on Intel CPUs without HT
-					initDatasetAVX2 = (xmrig::Cpu::info()->cores() == xmrig::Cpu::info()->threads());
+					initDatasetAVX2 = (info->cores() == info->threads());
 				}
 				else if (vendor == xmrig::ICpuInfo::VENDOR_AMD) {
 					switch (arch) {
@@ -266,7 +268,7 @@ namespace randomx {
 						break;
 					case xmrig::ICpuInfo::ARCH_ZEN2:
 						// AVX2 init is faster on Zen2 without SMT (mobile CPUs)
-						initDatasetAVX2 = (xmrig::Cpu::info()->cores() == xmrig::Cpu::info()->threads());
+						initDatasetAVX2 = (info->cores() == info->threads());
 						break;
 					case xmrig::ICpuInfo::ARCH_ZEN3:
 						// AVX2 init is faster on Zen3
@@ -286,7 +288,7 @@ namespace randomx {
 			initDatasetAVX2 = false;
 		}
 
-		hasXOP = xmrig::Cpu::info()->hasXOP();
+		hasXOP = info->hasXOP();
 
 		allocatedSize = initDatasetAVX2 ? (CodeSize * 4) : (CodeSize * 2);
 		allocatedCode = static_cast<uint8_t*>(allocExecutableMemory(allocatedSize,
@@ -319,7 +321,7 @@ namespace randomx {
 
 		if (hasAVX512) {
 			// Remove the jump instruction that skips the AVX code
-			memcpy(code + (codePrologueLoadConstantsAVX512VL - codePrologue) - 2, NOP2, 2);
+			memcpy(code + (codePrologueLoadConstantsAVX512VL - codePrologue) - 5, NOP5, 5);
 		}
 
 #		ifdef XMRIG_FIX_RYZEN
@@ -356,6 +358,11 @@ namespace randomx {
 #		endif
 
 		vm_flags = flags;
+
+		if (hasAVX512) {
+			initSequenceNumbers(prog);
+			memset(groupE_Usage, 0, sizeof(groupE_Usage));
+		}
 
 		generateProgramPrologue(prog, pcfg);
 		emit(codeReadDataset, readDatasetSize, code, codePos);
@@ -439,6 +446,64 @@ namespace randomx {
 		}
 	}
 
+	void JitCompilerX86::initSequenceNumbers(Program& prog)
+	{
+		alignas(16) int16_t last_changed[RegistersCount];
+		memset(last_changed, -1, sizeof(last_changed));
+
+		const uint32_t fp_border = instruction_borders[static_cast<size_t>(InstructionType::FSWAP_R)][0];
+
+		uint8_t cur_sequence_number = 0;
+
+		for (int i = 0, n = static_cast<int>(RandomX_CurrentConfig.ProgramSize); i < n; ++i) {
+			sequence_number[i] = cur_sequence_number;
+
+			const Instruction& instr = prog(i);
+
+			switch (instruction_type[instr.opcode]) {
+			case 0: // Normal integer instruction changing dst
+				last_changed[instr.dst % RegistersCount] = i;
+				break;
+
+			case 1: // CBRANCH
+			{
+				++cur_sequence_number;
+
+				const __m128i t = _mm_mask_set1_epi8(_mm_setzero_si128(), 0xFFFFU, cur_sequence_number);
+
+				int j = last_changed[instr.dst % RegistersCount] + 1;
+				do {
+					*reinterpret_cast<__m128i*>(sequence_number + j) = t;
+					j += 16;
+				} while (j <= i);
+
+				++cur_sequence_number;
+
+				static_assert(sizeof(last_changed) == 16, "Fix the code below if RegistersCount changes");
+				*reinterpret_cast<__m128i*>(last_changed) = _mm_mask_set1_epi16(_mm_setzero_si128(), 0xFFU, i);
+			}
+			break;
+
+			case 2: // IMUL_RCP
+				if (!isZeroOrPowerOf2(instr.imm32)) {
+					last_changed[instr.dst % RegistersCount] = i;
+				}
+				break;
+
+			case 3: // ISWAP_R
+			{
+				const uint32_t src = instr.src % RegistersCount;
+				const uint32_t dst = instr.dst % RegistersCount;
+				if (src != dst) {
+					last_changed[src] = i;
+					last_changed[dst] = i;
+				}
+			}
+			break;
+			};
+		}
+	}
+
 	void JitCompilerX86::generateProgramPrologue(Program& prog, ProgramConfiguration& pcfg) {
 		codePos = ADDR(randomx_program_prologue_first_load) - ADDR(randomx_program_prologue);
 		*(uint32_t*)(code + codePos + 4) = RandomX_CurrentConfig.ScratchpadL3Mask64_Calculated;
@@ -460,6 +525,8 @@ namespace randomx {
 		codePos = codePosFirst;
 		prevCFROUND = -1;
 		prevFPOperation = -1;
+
+		programBuffer = &prog(0);
 
 		//mark all registers as used
 		uint64_t* r = (uint64_t*)registerUsage;
@@ -1367,6 +1434,19 @@ namespace randomx {
 			pos += 14;
 		}
 
+		if (hasAVX512) {
+			GroupEUsageData& data = groupE_Usage[0];
+
+			data.last_changed = static_cast<int16_t>(pos);
+			data.last_instruction = static_cast<uint8_t>(randomx::InstructionType::CFROUND);
+			data.last_src = src;
+			data.last_sequence_number = sequence_number[static_cast<int>(&instr - programBuffer)];
+
+			groupE_Usage[1] = groupE_Usage[0];
+			groupE_Usage[2] = groupE_Usage[0];
+			groupE_Usage[3] = groupE_Usage[0];
+		}
+
 		codePos = pos;
 	}
 
@@ -1400,6 +1480,19 @@ namespace randomx {
 		else {
 			*(uint64_t*)(p + pos + 6) = 0x0414AE0F0CE083ULL;
 			pos += 13;
+		}
+
+		if (hasAVX512) {
+			GroupEUsageData& data = groupE_Usage[0];
+
+			data.last_changed = static_cast<int16_t>(pos);
+			data.last_instruction = static_cast<uint8_t>(randomx::InstructionType::CFROUND);
+			data.last_src = src;
+			data.last_sequence_number = sequence_number[static_cast<int>(&instr - programBuffer)];
+
+			groupE_Usage[1] = groupE_Usage[0];
+			groupE_Usage[2] = groupE_Usage[0];
+			groupE_Usage[3] = groupE_Usage[0];
 		}
 
 		codePos = pos;
@@ -1485,6 +1578,15 @@ namespace randomx {
 		*(uint64_t*)(p + pos) = 0x09C0057DE3C4ULL + ((dst >> 1) * 0x900000000ULL) - ((dst & 1) * 0x30000000000ULL);
 		pos += 6;
 
+		if (dst >= 4) {
+			GroupEUsageData& data = groupE_Usage[dst - 4];
+
+			data.last_changed = static_cast<int16_t>(pos);
+			data.last_instruction = static_cast<uint8_t>(randomx::InstructionType::FSWAP_R);
+			data.last_src = 0xFFU;
+			data.last_sequence_number = sequence_number[static_cast<int>(&instr - programBuffer)];
+		}
+
 		codePos = pos;
 	}
 
@@ -1494,7 +1596,7 @@ namespace randomx {
 
 		prevFPOperation = pos;
 
-		const uint64_t dst = static_cast<uint64_t>(instr.dst % RegisterCountFlt) + ((instr.opcode >= add_sub_border) ? RegisterCountFlt : 0);
+		const uint64_t dst = static_cast<uint64_t>(instr.dst % RegisterCountFlt) + ((instr.opcode >= instruction_borders[static_cast<size_t>(randomx::InstructionType::FSUB_R)][0]) ? RegisterCountFlt : 0);
 		const uint64_t src = instr.src % RegisterCountFlt;
 
 		static alignas(64) const uint64_t t[RegisterCountFlt * 2] = {
@@ -1534,7 +1636,7 @@ namespace randomx {
 			0xC45C29FDD162ULL, 0xC45C2AFDD162ULL, 0xCC5C29F5D162ULL, 0xCC5C2AF5D162ULL,
 		};
 
-		*(uint64_t*)(p + pos) = t[dst + ((instr.opcode >= add_sub_border) ? 4 : 0)];
+		*(uint64_t*)(p + pos) = t[dst + ((instr.opcode >= instruction_borders[static_cast<size_t>(randomx::InstructionType::FSUB_R)][0]) ? 4 : 0)];
 		pos += 6;
 
 		codePos = pos;
@@ -1571,6 +1673,42 @@ namespace randomx {
 
 		*(uint64_t*)(p + pos) = t[dst] + (src << 40);
 		pos += 6;
+
+		GroupEUsageData& prev_data = groupE_Usage[dst ^ 1];
+		GroupEUsageData& data = groupE_Usage[dst];
+
+		data.last_changed = static_cast<int16_t>(pos);
+		data.last_instruction = static_cast<uint8_t>(randomx::InstructionType::FMUL_R);
+		data.last_src = src;
+		data.last_sequence_number = sequence_number[static_cast<int>(&instr - programBuffer)];
+
+		// Check if this FMUL_R can become the merged instruction
+		if (prev_data.last_instruction == static_cast<uint8_t>(randomx::InstructionType::FMUL_R)) {
+			if ((prev_data.last_sequence_number == data.last_sequence_number) ||
+				(((prev_data.last_sequence_number | data.last_sequence_number) & 1) == 0)) {
+				// Exclude merged instructions from further merging
+				data.last_instruction = static_cast<uint8_t>(randomx::InstructionType::NOP);
+
+				// Erase the previous FMUL_R
+				memcpy(p + prev_data.last_changed - 6, NOP6, 6);
+
+				prev_data.last_changed = static_cast<int16_t>(pos);
+				prev_data.last_instruction = static_cast<uint8_t>(randomx::InstructionType::NOP);
+				prev_data.last_sequence_number = data.last_sequence_number;
+
+				// Write the merged FMUL_R to the current codePos
+				uint64_t merged_src;
+
+				if ((dst & 1) == 0) {
+					merged_src = (src << 2) | prev_data.last_src;
+				}
+				else {
+					merged_src = (static_cast<uint64_t>(prev_data.last_src) << 2) | src;
+				}
+
+				*(uint64_t*)(p + pos - 6) = 0xD05928EDB162ULL + ((merged_src & 7) << 40) - ((merged_src >> 3) << 13) + ((dst >> 1) ? 0x7FFFFF80000ULL : 0);
+			}
+		}
 
 		codePos = pos;
 	}
@@ -1617,6 +1755,13 @@ namespace randomx {
 		memcpy(p + pos, t + (dst << 5), N);
 		pos += N;
 
+		GroupEUsageData& data = groupE_Usage[dst];
+
+		data.last_changed = static_cast<int16_t>(pos);
+		data.last_instruction = static_cast<uint8_t>(randomx::InstructionType::FDIV_M);
+		data.last_src = src;
+		data.last_sequence_number = sequence_number[static_cast<int>(&instr - programBuffer)];
+
 		codePos = pos;
 	}
 
@@ -1635,9 +1780,17 @@ namespace randomx {
 		*(uint64_t*)(p + pos) = t[dst];
 		pos += 6;
 
+		GroupEUsageData& data = groupE_Usage[dst];
+
+		data.last_changed = static_cast<int16_t>(pos);
+		data.last_instruction = static_cast<uint8_t>(randomx::InstructionType::FSQRT_R);
+		data.last_src = 0xFFU;
+		data.last_sequence_number = sequence_number[static_cast<int>(&instr - programBuffer)];
+
 		codePos = pos;
 	}
 
 	alignas(64) InstructionGeneratorX86 JitCompilerX86::engine[256] = {};
-	uint32_t JitCompilerX86::add_sub_border = 0;
+	alignas(64) uint32_t JitCompilerX86::instruction_borders[static_cast<size_t>(randomx::InstructionType::NOP) + 1][2] = {};
+	alignas(64) uint8_t JitCompilerX86::instruction_type[256] = {};
 }

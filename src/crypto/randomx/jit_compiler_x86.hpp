@@ -34,6 +34,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <cstring>
 #include <vector>
 #include "crypto/randomx/common.hpp"
+#include "crypto/randomx/instruction.hpp"
 
 namespace randomx {
 
@@ -82,16 +83,30 @@ namespace randomx {
 		void enableExecution() const;
 
 		alignas(64) static InstructionGeneratorX86 engine[256];
-		static uint32_t add_sub_border;
+		alignas(64) static uint32_t instruction_borders[static_cast<size_t>(randomx::InstructionType::NOP) + 1][2];
+		alignas(64) static uint8_t instruction_type[256];
+		alignas(64) uint8_t sequence_number[256 + 16];
 
 	private:
 		int registerUsage[RegistersCount] = {};
+
 		uint8_t* code = nullptr;
 		uint32_t codePos = 0;
 		uint32_t codePosFirst = 0;
 		uint32_t vm_flags = 0;
 		int32_t prevCFROUND = -1;
 		int32_t prevFPOperation = -1;
+
+		Instruction* programBuffer = nullptr;
+
+		struct alignas(uint32_t) GroupEUsageData {
+			int16_t last_changed;
+			uint8_t last_instruction;
+			uint8_t last_src;
+			uint8_t last_sequence_number;
+		};
+
+		GroupEUsageData groupE_Usage[RegisterCountFlt] = {};
 
 #		ifdef XMRIG_FIX_RYZEN
 		std::pair<const void*, const void*> mainLoopBounds;
@@ -110,6 +125,7 @@ namespace randomx {
 		uint8_t* imul_rcp_storage = nullptr;
 		uint32_t imul_rcp_storage_used = 0;
 
+		void initSequenceNumbers(Program&);
 		void generateProgramPrologue(Program&, ProgramConfiguration&);
 		void generateProgramEpilogue(Program&, ProgramConfiguration&);
 		template<bool rax>
