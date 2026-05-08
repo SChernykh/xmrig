@@ -31,10 +31,8 @@ namespace xmrig {
 
 static const std::map<int, std::map<uint32_t, uint64_t> > hashCheck = {
     { Algorithm::RX_0, {
-#       ifndef NDEBUG
         {    10000U, 0x4A597463865ACF0EULL },
         {    20000U, 0xC82B490C757DA738ULL },
-#       endif
         {   250000U, 0x7D6054757BB08A63ULL },
         {   500000U, 0x96607546DE1F5ECCULL },
         {  1000000U, 0x898B6E0431C28A6BULL },
@@ -49,10 +47,8 @@ static const std::map<int, std::map<uint32_t, uint64_t> > hashCheck = {
         { 10000000U, 0xB5231262E2792B26ULL }
     }},
     { Algorithm::RX_V2, {
-#       ifndef NDEBUG
         {    10000U, 0x57d2051d099613a4ULL },
         {    20000U, 0x0bae0155cc797f01ULL },
-#       endif
         {   250000U, 0x18cf741a71484072ULL },
         {   500000U, 0xcd8c3e6ec31b2faeULL },
         {  1000000U, 0x88d6b8fb70cd479dULL },
@@ -67,10 +63,8 @@ static const std::map<int, std::map<uint32_t, uint64_t> > hashCheck = {
         { 10000000U, 0x7efbddff3f30fb74ULL }
     }},
     { Algorithm::RX_WOW, {
-#       ifndef NDEBUG
         {    10000U, 0x6B0918757100B338ULL },
         {    20000U, 0x0B55785C1837F41BULL },
-#       endif
         {   250000U, 0xC7F712C9603E2603ULL },
         {   500000U, 0x21A0E5AAE6DA7D8DULL },
         {  1000000U, 0x0F3E5400B39EA96AULL },
@@ -89,10 +83,8 @@ static const std::map<int, std::map<uint32_t, uint64_t> > hashCheck = {
 
 static const std::map<int, std::map<uint32_t, uint64_t> > hashCheck1T = {
     { Algorithm::RX_0, {
-#       ifndef NDEBUG
         {    10000U, 0xADFC3A66F79BFE7FULL },
         {    20000U, 0x8ED578A60D55C0DBULL },
-#       endif
         {   250000U, 0x90A15B799486F3EBULL },
         {   500000U, 0xAA83118FEE570F9AULL },
         {  1000000U, 0x3DF47B0A427C93D9ULL },
@@ -107,10 +99,8 @@ static const std::map<int, std::map<uint32_t, uint64_t> > hashCheck1T = {
         { 10000000U, 0x95E6BAE68DD779CDULL }
     }},
     { Algorithm::RX_V2, {
-#       ifndef NDEBUG
         {    10000, 0x90eb7c07cd9e0d90ULL },
         {    20000, 0x6523a3658d7d9930ULL },
-#       endif
         {   250000, 0xf83b6d9d355ee5b1ULL },
         {   500000, 0xbea3c1bf1465e9abULL },
         {  1000000, 0x9e16f7cb56b366e1ULL },
@@ -125,10 +115,8 @@ static const std::map<int, std::map<uint32_t, uint64_t> > hashCheck1T = {
         { 10000000, 0x3a45b7247cec9895ULL }
     }},
     { Algorithm::RX_WOW, {
-#       ifndef NDEBUG
         {    10000U, 0x9EC1B9B8C8C7F082ULL },
         {    20000U, 0xF1DA44FA2A20D730ULL },
-#       endif
         {   250000U, 0x7B409F096C863207ULL },
         {   500000U, 0x70B7B80D15654216ULL },
         {  1000000U, 0x31301CC550306A59ULL },
