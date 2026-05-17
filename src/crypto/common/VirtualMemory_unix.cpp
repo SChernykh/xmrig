@@ -74,6 +74,11 @@
 #endif
 
 
+#ifndef MADV_COLLAPSE
+#   define MADV_COLLAPSE 25
+#endif
+
+
 #if defined(XMRIG_OS_LINUX) || (!defined(XMRIG_OS_APPLE) && !defined(XMRIG_OS_FREEBSD))
 static inline int hugePagesFlag(size_t size)
 {
@@ -278,8 +283,9 @@ bool xmrig::VirtualMemory::allocateOneGbPagesMemory()
 
 bool xmrig::VirtualMemory::adviseLargePages(void *p, size_t size)
 {
-#   ifdef XMRIG_OS_LINUX
-    return (madvise(p, size, MADV_HUGEPAGE) == 0);
+#   if defined(XMRIG_OS_ANDROID) || defined(XMRIG_OS_LINUX)
+    // MADV_COLLAPSE works even if /sys/kernel/mm/transparent_hugepage/enabled is set to "never", but only on Linux 6.1+
+    return (madvise(p, size, MADV_COLLAPSE) == 0) || (madvise(p, size, MADV_HUGEPAGE) == 0);
 #   else
     return false;
 #   endif
